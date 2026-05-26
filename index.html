@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>⚡ The System</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg:#080B14; --bg2:#0D1117; --bg3:#111827; --border:#1E2D40;
+    --gold:#FFD166; --cyan:#06D6E0; --purple:#A855F7; --green:#10F5A0;
+    --orange:#FF6B35; --pink:#FF4ECD; --blue:#3B82F6; --red:#FF4757;
+    --muted:#6B7280; --dim:#9CA3AF; --white:#F9FAFB;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--white); font-family:'Courier New',monospace; min-height:100vh; overflow-x:hidden; }
+
+  /* BOOT */
+  #boot { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; padding:30px; transition:opacity 0.5s; }
+  #boot.hidden { opacity:0; pointer-events:none; }
+  #boot-text { font-size:13px; color:var(--gold); line-height:2.2; white-space:pre-line; max-width:320px; width:100%; }
+  .cursor { animation:blink 1s step-end infinite; }
+
+  /* PARTICLES */
+  .particle { position:fixed; border-radius:50%; pointer-events:none; z-index:0; animation:float 4s ease-in-out infinite alternate; }
+  .scanlines { position:fixed; inset:0; pointer-events:none; z-index:1; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px); }
+
+  #app { position:relative; z-index:2; max-width:480px; margin:0 auto; padding:16px; }
+
+  /* HEADER */
+  .header { text-align:center; padding:12px 0 16px; }
+  .header-sub { font-size:9px; letter-spacing:4px; color:var(--muted); margin-bottom:4px; }
+  .header-title { font-size:24px; font-weight:bold; color:var(--gold); letter-spacing:3px; animation:glow 3s ease-in-out infinite; }
+  .header-ver { font-size:8px; color:var(--muted); letter-spacing:2px; margin-top:2px; }
+
+  /* NAV */
+  .nav { display:flex; gap:4px; margin-bottom:16px; background:var(--bg2); padding:4px; border-radius:8px; border:1px solid var(--border); }
+  .nav-btn { flex:1; padding:9px 4px; border:none; border-radius:6px; cursor:pointer; font-family:'Courier New',monospace; font-size:10px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; transition:all 0.2s; background:transparent; color:var(--muted); }
+  .nav-btn.active { background:var(--gold); color:var(--bg); }
+
+  /* CARDS */
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .card-gold { border-color:#FFD16633; box-shadow:0 0 20px #FFD16611; }
+  .card-title { font-size:9px; letter-spacing:3px; color:var(--cyan); margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+
+  /* PLAYER */
+  .player-row { display:flex; justify-content:space-between; align-items:flex-start; }
+  .player-label { color:var(--muted); font-size:9px; letter-spacing:2px; }
+  .player-name { color:var(--white); font-size:15px; font-weight:bold; margin-top:2px; }
+  .player-streak { color:var(--green); font-size:9px; margin-top:4px; }
+  .level-label { color:var(--muted); font-size:9px; letter-spacing:2px; text-align:right; }
+  .level-num { color:var(--gold); font-size:48px; font-weight:bold; line-height:1; text-shadow:0 0 20px var(--gold); text-align:right; }
+
+  /* XP */
+  .xp-section { margin:16px 0; }
+  .xp-labels { display:flex; justify-content:space-between; margin-bottom:6px; }
+  .xp-label { color:var(--gold); font-size:9px; letter-spacing:2px; }
+  .xp-sub { color:var(--muted); font-size:9px; }
+  .xp-track { height:10px; background:var(--bg); border-radius:5px; overflow:hidden; border:1px solid #FFD16633; position:relative; }
+  .xp-fill { height:100%; border-radius:5px; background:linear-gradient(90deg,#C9A84C,#FFD166,#FFE566); box-shadow:0 0 12px #FFD16688; transition:width 1s ease-out; position:relative; }
+  .xp-shine { position:absolute; right:0; top:0; bottom:0; width:4px; background:white; opacity:0.8; border-radius:0 5px 5px 0; animation:pulse 1s ease-in-out infinite; }
+  .xp-pct { text-align:center; margin-top:5px; color:var(--gold); font-size:11px; }
+  .penalty-badge { background:#FF475711; border:1px solid #FF475733; border-radius:6px; padding:8px; margin-top:8px; font-size:10px; color:var(--red); text-align:center; }
+
+  /* STATS */
+  .stat-row { margin-bottom:14px; }
+  .stat-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .stat-left { display:flex; align-items:center; gap:8px; }
+  .stat-emoji { font-size:16px; }
+  .stat-name { font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; }
+  .stat-desc { font-size:8px; color:var(--muted); margin-top:1px; }
+  .stat-val { font-size:14px; font-weight:bold; min-width:28px; text-align:right; }
+  .stat-track { height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+  .stat-fill { height:100%; border-radius:3px; transition:width 1.2s ease-out; }
+
+  /* QUESTS */
+  .quest-item { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; margin-bottom:6px; background:var(--bg3); border:1px solid var(--border); }
+  .quest-item.done { opacity:0.45; border-color:#10F5A033; }
+  .quest-check { font-size:16px; flex-shrink:0; }
+  .quest-name { font-size:11px; font-weight:bold; color:var(--white); }
+  .quest-meta { font-size:9px; color:var(--muted); margin-top:2px; }
+  .quest-xp { font-size:10px; font-weight:bold; margin-left:auto; flex-shrink:0; }
+
+  /* LOADING */
+  .loading { text-align:center; padding:30px; color:var(--muted); font-size:11px; }
+  .loading-dot { animation:blink 1s step-end infinite; }
+
+  /* SYNC */
+  .sync-step { color:var(--muted); font-size:10px; line-height:2; margin-bottom:10px; }
+  textarea { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--gold); font-family:'Courier New',monospace; font-size:10px; resize:none; height:80px; outline:none; transition:border-color 0.2s; }
+  textarea:focus { border-color:var(--gold); }
+  .btn-primary { width:100%; margin-top:8px; padding:12px; background:var(--gold); color:var(--bg); border:none; border-radius:8px; font-family:'Courier New',monospace; font-size:11px; font-weight:bold; cursor:pointer; letter-spacing:2px; }
+  .btn-secondary { width:100%; padding:12px; background:#06D6E022; color:var(--cyan); border:1px solid #06D6E044; border-radius:8px; font-family:'Courier New',monospace; font-size:11px; font-weight:bold; cursor:pointer; letter-spacing:2px; }
+  .sync-msg { margin-top:8px; text-align:center; font-size:11px; }
+  .sync-output { margin-top:10px; background:var(--bg); border:1px solid #06D6E033; border-radius:6px; padding:10px; font-size:9px; color:var(--cyan); word-break:break-all; line-height:1.8; }
+  .sync-hint { color:var(--muted); font-size:9px; margin-top:6px; }
+
+  /* ABOUT */
+  .about-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:10px; }
+  .about-key { color:var(--muted); }
+  .about-val { color:var(--white); }
+  .about-quote { margin-top:16px; color:var(--muted); font-size:9px; line-height:2; text-align:center; font-style:italic; }
+  .about-quote span { color:var(--gold); }
+
+  .tip { background:var(--bg2); border:1px solid #1E2D4088; border-radius:8px; padding:12px; font-size:9px; color:var(--muted); line-height:1.9; }
+  .tip-title { color:var(--gold); }
+
+  /* REFRESH BTN */
+  .refresh-btn { width:100%; padding:10px; background:transparent; color:var(--cyan); border:1px solid #06D6E033; border-radius:8px; font-family:'Courier New',monospace; font-size:10px; cursor:pointer; letter-spacing:1px; margin-bottom:12px; }
+  .refresh-btn:active { background:#06D6E011; }
+
+  /* ANIMATIONS */
+  @keyframes blink { 50%{opacity:0;} }
+  @keyframes float { from{transform:translateY(0);} to{transform:translateY(-12px);} }
+  @keyframes glow { 0%,100%{text-shadow:0 0 10px var(--gold);} 50%{text-shadow:0 0 25px var(--gold),0 0 50px var(--gold);} }
+  @keyframes pulse { 0%,100%{opacity:0.8;} 50%{opacity:0.2;} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+  .fade-in { animation:fadeIn 0.4s ease forwards; }
+  ::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-track{background:var(--bg2);} ::-webkit-scrollbar-thumb{background:#FFD16644;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div id="boot"><div id="boot-text"></div></div>
+<div class="scanlines"></div>
+<div id="particles"></div>
+
+<div id="app" style="display:none">
+  <div class="header">
+    <div class="header-sub">S O L O &nbsp; L E V E L I N G</div>
+    <div class="header-title">⚡ THE SYSTEM</div>
+    <div class="header-ver">PERSONAL GROWTH INTERFACE v2.0</div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="showTab('status',this)">📊 Status</button>
+    <button class="nav-btn" onclick="showTab('quests',this)">⚔️ Quests</button>
+    <button class="nav-btn" onclick="showTab('sync',this)">🔄 Sync</button>
+    <button class="nav-btn" onclick="showTab('about',this)">ℹ️ Info</button>
+  </div>
+
+  <!-- STATUS -->
+  <div id="tab-status" class="tab">
+    <button class="refresh-btn" onclick="loadLiveData()">↻ REFRESH LIVE DATA</button>
+    <div class="card card-gold">
+      <div class="player-row">
+        <div>
+          <div class="player-label">PLAYER</div>
+          <div class="player-name">Victor</div>
+          <div class="player-streak" id="streak-text">🔥 0 day streak</div>
+        </div>
+        <div>
+          <div class="level-label">LEVEL</div>
+          <div class="level-num" id="level-num">2</div>
+        </div>
+      </div>
+      <div class="xp-section">
+        <div class="xp-labels">
+          <span class="xp-label">XP PROGRESS</span>
+          <span class="xp-sub" id="xp-sub">0 / 100 → LVL 3</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:0%"><div class="xp-shine"></div></div></div>
+        <div class="xp-pct" id="xp-pct">0%</div>
+      </div>
+      <div id="penalty-badge" style="display:none" class="penalty-badge"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">━━━ STAT WINDOW ━━━</div>
+      <div id="stats-container"><div class="loading">Loading stats<span class="loading-dot">...</span></div></div>
+    </div>
+    <div class="tip"><span class="tip-title">💡 AUTO-SYNC:</span><br/>Stats update automatically when you open the app.<br/>Complete quests via Telegram bot → tap Refresh to see live changes.</div>
+  </div>
+
+  <!-- QUESTS -->
+  <div id="tab-quests" class="tab" style="display:none">
+    <button class="refresh-btn" onclick="loadLiveData()">↻ REFRESH LIVE DATA</button>
+    <div class="card">
+      <div class="card-title" id="quests-day-title">━━━ TODAY'S QUEST LOG ━━━</div>
+      <div id="quests-container"><div class="loading">Loading quests<span class="loading-dot">...</span></div></div>
+    </div>
+    <div class="tip"><span class="tip-title">⚡ TIP:</span><br/>Complete quests via your Telegram bot notifications.<br/>Tap Refresh after completing to see your progress update live.</div>
+  </div>
+
+  <!-- SYNC -->
+  <div id="tab-sync" class="tab" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">━━━ MANUAL SYNC (BACKUP) ━━━</div>
+      <div class="sync-step">Data loads automatically when you open the app.<br/>Use this only if auto-sync fails:<br/>1. Type /export in bot → 2. Paste below → 3. Import</div>
+      <textarea id="sync-input" placeholder="LVL:2|XP:100|STATS:10,10,10,10,10,10|STREAK:0|PENALTIES:0"></textarea>
+      <button class="btn-primary" onclick="doImport()">⚡ IMPORT SYNC CODE</button>
+      <div id="sync-msg" class="sync-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">━━━ EXPORT CODE ━━━</div>
+      <button class="btn-secondary" onclick="doExport()">🔄 GENERATE CODE</button>
+      <div id="sync-output"></div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="tab-about" class="tab" style="display:none">
+    <div class="card">
+      <div class="card-title">━━━ SYSTEM INFO ━━━</div>
+      <div class="about-row"><span class="about-key">PLAYER</span><span class="about-val">Victor</span></div>
+      <div class="about-row"><span class="about-key">SYSTEM VERSION</span><span class="about-val">v2.0</span></div>
+      <div class="about-row"><span class="about-key">TIMEZONE</span><span class="about-val">Africa/Lagos</span></div>
+      <div class="about-row"><span class="about-key">DAILY QUESTS</span><span class="about-val">4 every day</span></div>
+      <div class="about-row"><span class="about-key">WEEKLY QUESTS</span><span class="about-val">38 total</span></div>
+      <div class="about-row"><span class="about-key">XP CURVE</span><span class="about-val">1.4× per level</span></div>
+      <div class="about-row"><span class="about-key">STAT DECAY</span><span class="about-val">−2 per missed quest</span></div>
+      <div class="about-row"><span class="about-key">STAT GAIN</span><span class="about-val">+3 per completed quest</span></div>
+      <div class="about-row"><span class="about-key">LEVEL UP BONUS</span><span class="about-val">All stats +1</span></div>
+      <div class="about-quote">
+        "Only the disciplined are free."<br/>
+        <span>— Victor</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:20px"></div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+// This gets set when you deploy — it's your Railway API URL
+const API_URL = window.SYSTEM_API_URL || "";
+
+const STATS = ["Spirit","Wealth","Mind","Body","Relationships","Creativity"];
+const STAT_META = {
+  Spirit:        {emoji:"⚔️", color:"#FFD166", desc:"Prayer · Bible · Church · Discipleship"},
+  Wealth:        {emoji:"💰", color:"#06D6E0", desc:"GHL · Uzaire · Content · Business"},
+  Mind:          {emoji:"🧠", color:"#A855F7", desc:"Study · Reading · Yoruba · Learning"},
+  Body:          {emoji:"💪", color:"#FF6B35", desc:"Workout · Sleep · Nutrition"},
+  Relationships: {emoji:"🤝", color:"#10F5A0", desc:"Family · Discipleship · Community"},
+  Creativity:    {emoji:"✨", color:"#FF4ECD", desc:"AMV · That One Thing · Content"},
+};
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+function xpForLevel(l){return Math.floor(100*Math.pow(1.4,l-1));}
+function totalXpForLevel(l){let t=0;for(let i=1;i<l;i++)t+=xpForLevel(i);return t;}
+
+let liveData = null;
+
+// ── LIVE DATA ─────────────────────────────────────────────────────────────────
+async function loadLiveData() {
+  if(!API_URL) { renderFromLocal(); return; }
+  try {
+    const res = await fetch(API_URL + "/stats", {cache:"no-store"});
+    if(!res.ok) throw new Error("Failed");
+    liveData = await res.json();
+    // Save to local as backup
+    try { localStorage.setItem("theSystemLive", JSON.stringify(liveData)); } catch{}
+    renderStatus(liveData);
+    renderQuests(liveData);
+  } catch(e) {
+    // Fallback to cached
+    try {
+      const cached = localStorage.getItem("theSystemLive");
+      if(cached) { liveData = JSON.parse(cached); renderStatus(liveData); renderQuests(liveData); }
+    } catch{}
+  }
+}
+
+function renderFromLocal() {
+  try {
+    const cached = localStorage.getItem("theSystemLive");
+    if(cached) { liveData = JSON.parse(cached); renderStatus(liveData); renderQuests(liveData); }
+  } catch{}
+}
+
+// ── RENDER STATUS ─────────────────────────────────────────────────────────────
+function renderStatus(d) {
+  if(!d) return;
+  document.getElementById("level-num").textContent = d.level;
+  document.getElementById("streak-text").textContent = `🔥 ${d.streak} day streak`;
+  document.getElementById("xp-sub").textContent = `${d.level_xp} / ${d.needed} → LVL ${d.level+1}`;
+  const fill = document.getElementById("xp-fill");
+  fill.style.width = "0%";
+  setTimeout(()=>fill.style.width=d.pct+"%", 100);
+  document.getElementById("xp-pct").textContent = d.pct+"%";
+  const pb = document.getElementById("penalty-badge");
+  if(d.penalties>0){pb.style.display="block"; pb.textContent=`⚠️ ${d.penalties} PENALTY QUEST${d.penalties>1?"S":""} PENDING — Complete in Telegram bot`;}
+  else pb.style.display="none";
+
+  const sc = document.getElementById("stats-container");
+  sc.innerHTML = "";
+  STATS.forEach(stat=>{
+    const m = STAT_META[stat];
+    const val = d.stats[stat] || 0;
+    const div = document.createElement("div");
+    div.className = "stat-row";
+    div.innerHTML = `
+      <div class="stat-header">
+        <div class="stat-left">
+          <span class="stat-emoji">${m.emoji}</span>
+          <div><div class="stat-name" style="color:${m.color}">${stat}</div><div class="stat-desc">${m.desc}</div></div>
+        </div>
+        <div class="stat-val" style="color:${m.color}">${val}</div>
+      </div>
+      <div class="stat-track" style="border-color:${m.color}22">
+        <div class="stat-fill" style="width:0%;background:linear-gradient(90deg,${m.color}44,${m.color});box-shadow:0 0 8px ${m.color}88"></div>
+      </div>`;
+    sc.appendChild(div);
+    setTimeout(()=>div.querySelector(".stat-fill").style.width=val+"%", 150);
+  });
+}
+
+// ── RENDER QUESTS ─────────────────────────────────────────────────────────────
+function renderQuests(d) {
+  if(!d || !d.quests) return;
+  const today = new Date().getDay();
+  const todayIdx = today===0?6:today-1;
+  document.getElementById("quests-day-title").textContent = `━━━ ${DAYS[todayIdx].toUpperCase()}'S QUEST LOG ━━━`;
+  const qc = document.getElementById("quests-container");
+  qc.innerHTML = "";
+  if(!d.quests.length){qc.innerHTML='<div class="loading">No quests today. Rest, Victor.</div>';return;}
+  d.quests.forEach(q=>{
+    const m = STAT_META[q.stat] || {emoji:"⚡",color:"#FFD166"};
+    const div = document.createElement("div");
+    div.className = "quest-item" + (q.done?" done":"");
+    div.innerHTML = `
+      <span class="quest-check">${q.done?"✅":"🔲"}</span>
+      <div style="flex:1">
+        <div class="quest-name">${q.name}</div>
+        <div class="quest-meta">${m.emoji} ${q.stat} · 🕐 ${q.time} · ⏱ ${q.dur}m</div>
+      </div>
+      <div class="quest-xp" style="color:${m.color}">+${q.xp}XP</div>`;
+    qc.appendChild(div);
+  });
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll(".tab").forEach(t=>t.style.display="none");
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("tab-"+name).style.display="block";
+  btn.classList.add("active");
+}
+
+// ── SYNC (MANUAL BACKUP) ──────────────────────────────────────────────────────
+function parseSync(code) {
+  try {
+    const parts={};
+    code.trim().split("|").forEach(seg=>{const idx=seg.indexOf(":");parts[seg.slice(0,idx)]=seg.slice(idx+1);});
+    const statVals=parts.STATS.split(",").map(Number);
+    const stats={};STATS.forEach((s,i)=>stats[s]=statVals[i]);
+    return {level:parseInt(parts.LVL),total_xp:parseInt(parts.XP),level_xp:0,needed:xpForLevel(parseInt(parts.LVL)),pct:0,stats,streak:parseInt(parts.STREAK),penalties:parseInt(parts.PENALTIES),quests:[]};
+  } catch{return null;}
+}
+
+function doImport() {
+  const code = document.getElementById("sync-input").value.trim();
+  const parsed = parseSync(code);
+  const msg = document.getElementById("sync-msg");
+  if(!parsed){msg.style.color="var(--red)";msg.textContent="❌ Invalid code.";return;}
+  // Fix XP progress
+  const levelStart = totalXpForLevel(parsed.level);
+  parsed.level_xp = parsed.total_xp - levelStart;
+  parsed.needed = xpForLevel(parsed.level);
+  parsed.pct = Math.min(100,Math.floor((parsed.level_xp/parsed.needed)*100));
+  liveData = parsed;
+  try{localStorage.setItem("theSystemLive",JSON.stringify(parsed));}catch{}
+  renderStatus(parsed);
+  msg.style.color="var(--green)";msg.textContent="✅ Synced!";
+  setTimeout(()=>msg.textContent="",3000);
+}
+
+function doExport() {
+  if(!liveData) return;
+  const statsStr = STATS.map(s=>liveData.stats[s]).join(",");
+  const code = `LVL:${liveData.level}|XP:${liveData.total_xp}|STATS:${statsStr}|STREAK:${liveData.streak}|PENALTIES:${liveData.penalties}`;
+  document.getElementById("sync-output").innerHTML = `<div>${code}</div><div class="sync-hint">Copy → Telegram → /import [paste]</div>`;
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────────────────────
+function createParticles() {
+  const colors=["#FFD166","#06D6E0","#A855F7","#10F5A0","#FF4ECD"];
+  const c=document.getElementById("particles");
+  for(let i=0;i<18;i++){
+    const p=document.createElement("div");
+    p.className="particle";
+    p.style.cssText=`width:${i%3===0?2:1}px;height:${i%3===0?2:1}px;background:${colors[i%colors.length]};left:${(i*37+10)%100}%;top:${(i*53+5)%100}%;opacity:0.35;animation-delay:${(i*0.3)%2}s;animation-duration:${3+(i%4)}s;`;
+    c.appendChild(p);
+  }
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+const BOOT_LINES = [
+  "⚡ INITIALIZING THE SYSTEM...",
+  "▸ Connecting to server...",
+  "▸ Loading player: Victor...",
+  "▸ Syncing quest log...",
+  "▸ Calculating stat progression...",
+  "✓ SYSTEM ONLINE — Only the disciplined are free.",
+];
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  try{window.Telegram.WebApp.ready();window.Telegram.WebApp.expand();}catch{}
+  createParticles();
+
+  const bootEl = document.getElementById("boot-text");
+  let i=0, text="";
+
+  function bootStep(){
+    if(i<BOOT_LINES.length){
+      text+=(i>0?"\n":"")+BOOT_LINES[i];
+      bootEl.innerHTML=text+'<span class="cursor">_</span>';
+      i++;
+      setTimeout(bootStep, i===BOOT_LINES.length?700:280);
+    } else {
+      const boot=document.getElementById("boot");
+      boot.classList.add("hidden");
+      setTimeout(()=>{
+        boot.style.display="none";
+        document.getElementById("app").style.display="block";
+        loadLiveData();
+      },500);
+    }
+  }
+  bootStep();
+});
+</script>
+</body>
+</html>
