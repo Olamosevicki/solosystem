@@ -5,6 +5,7 @@ import threading
 from datetime import datetime, time
 import pytz
 from flask import Flask, jsonify
+from flask_cors import CORS
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -175,6 +176,7 @@ def build_status_message(data):
 
 # ── FLASK API (for Mini App live data) ───────────────────────────────────────
 flask_app = Flask(__name__)
+CORS(flask_app)
 
 @flask_app.route("/stats")
 def get_stats():
