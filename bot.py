@@ -205,8 +205,10 @@ def get_xp_progress(data):
     return level_xp, needed
 
 def get_todays_quests():
-    today = datetime.now(TIMEZONE).weekday()
-    return [q for q in QUESTS if q[6] == "daily" or today in q[6]]
+    now = datetime.now(TIMEZONE)
+    today = now.weekday()  # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+    logger.info(f"Today is weekday {today} — {now.strftime('%A %Y-%m-%d %H:%M')} Lagos time")
+    return [q for q in QUESTS if q[6] == "daily" or (isinstance(q[6], list) and today in q[6])]
 
 def get_quest_by_id(qid):
     return next((q for q in QUESTS if q[0] == qid), None)
@@ -611,10 +613,14 @@ def schedule_jobs(app):
             )
         else:
             for day in days:
+                # python-telegram-bot days: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+                # Python weekday: 0=Mon,1=Tue,2=Wed,3=Thu,4=Fri,5=Sat,6=Sun
+                # Convert: ptb_day = (python_day + 1) % 7
+                ptb_day = (day + 1) % 7
                 app.job_queue.run_daily(
                     send_quest_notification,
                     time=time(hour, minute, tzinfo=TIMEZONE),
-                    days=(day,), data=quest, name=f"quest_{qid}_{day}"
+                    days=(ptb_day,), data=quest, name=f"quest_{qid}_{day}"
                 )
     # Hourly penalty decay
     app.job_queue.run_repeating(hourly_penalty_decay, interval=3600, first=60)
@@ -640,3 +646,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
